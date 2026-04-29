@@ -53,10 +53,29 @@ class IsolateJob < ApplicationJob
 
   def initialize_workdir
     @box_id = submission.id%2147483647
+    # Always pass --cg so isolate uses cgroup-based resource accounting.
+    # On cgroup v2 hosts this is required; on cgroup v1 it is also safe.
     @cgroups = (!submission.enable_per_process_and_thread_time_limit || !submission.enable_per_process_and_thread_memory_limit) ? "--cg" : ""
-    @workdir = `isolate #{cgroups} -b #{box_id} --init`.chomp
+
+    init_output = `isolate #{cgroups} -b #{box_id} --init 2>&1`.chomp
+    unless $?.success?
+      raise "isolate --init failed for box #{box_id} (exit #{$?.exitstatus}): #{init_output}. " \
+            "This usually means cgroup v2 controllers are not delegated. " \
+            "Ensure /sys/fs/cgroup is mounted rw, cgroupns=host, and SYS_ADMIN capability is set. " \
+            "See CGROUP_V2_CHANGES.md for details."
+    end
+
+    @workdir = init_output
     @boxdir = workdir + "/box"
     @tmpdir = workdir + "/tmp"
+
+    # Verify the sandbox directory actually exists. isolate can exit 0 but
+    # silently skip directory creation when cgroup delegation is incomplete.
+    unless Dir.exist?(boxdir)
+      raise "isolate --init succeeded but sandbox directory #{boxdir} was not created. " \
+            "Check that cgroup v2 controllers (cpu, memory, pids) are delegated to the " \
+            "container's cgroup. See CGROUP_V2_CHANGES.md for the required Docker setup."
+    end
     @source_file = boxdir + "/" + submission.language.source_file.to_s
     @stdin_file = workdir + "/" + STDIN_FILE_NAME
     @stdout_file = workdir + "/" + STDOUT_FILE_NAME

@@ -22,6 +22,27 @@ RUN apt-get update && \
     gem install bundler:2.1.4 && \
     npm install -g --unsafe-perm aglio@2.3.0
 
+# ── cgroup v2 fix: rebuild isolate from ioi/isolate v2.4 ─────────────────────
+# The base image ships isolate built from judge0/isolate@ad39cc4d (cgroup v1
+# era). We replace it with the upstream ioi/isolate v2.4 which has full cgroup
+# v2 support via --cg flag. We skip isolate-cg-keeper (systemd unit helper)
+# since it isn't used by Judge0's worker — only `isolate` and
+# `isolate-check-environment` are needed.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      libcap-dev \
+      libseccomp-dev \
+      pkg-config && \
+    rm -rf /var/lib/apt/lists/* && \
+    git clone --depth 1 --branch v2.4 https://github.com/ioi/isolate.git /tmp/isolate && \
+    cd /tmp/isolate && \
+    make -j$(nproc) isolate isolate-check-environment && \
+    install -m 4755 isolate /usr/local/bin/isolate && \
+    install isolate-check-environment /usr/local/bin/isolate-check-environment && \
+    rm -rf /tmp/isolate && \
+    isolate --version
+# ─────────────────────────────────────────────────────────────────────────────
+
 EXPOSE 2358
 
 WORKDIR /api
