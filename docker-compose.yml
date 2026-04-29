@@ -10,22 +10,16 @@ x-logging:
 #   - SYS_ADMIN: required for mount namespaces and cgroup operations in isolate
 #   - seccomp:unconfined: isolate uses clone()/unshare() syscalls that a default
 #     seccomp profile blocks
-#   - cgroupns: host: shares the host cgroup namespace so /sys/fs/cgroup paths
+#   - privileged: true: shares the host cgroup namespace so /sys/fs/cgroup paths
 #     seen inside the container match the real hierarchy
 #   - /sys/fs/cgroup:rw: allows isolate to create sub-cgroups at runtime
 # These options work on both cgroup v1 and v2 hosts.
-x-isolate-runtime: &isolate-runtime
-  cap_add:
-    - SYS_ADMIN
-  security_opt:
-    - seccomp:unconfined
-  cgroupns: host
-  volumes:
-    - /sys/fs/cgroup:/sys/fs/cgroup:rw
+### (x-isolate-runtime removed; unused)
 
 services:
   server:
-    image: judge0/judge0:latest
+    image: bitblazer/judge0-cgv2:latest
+    user: root
     volumes:
       - ./judge0.conf:/judge0.conf:ro
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
@@ -35,12 +29,14 @@ services:
       - SYS_ADMIN
     security_opt:
       - seccomp:unconfined
-    cgroupns: host
+    privileged: true
+    pids_limit: -1
     <<: *default-logging
     restart: always
 
   worker:
-    image: judge0/judge0:latest
+    image: bitblazer/judge0-cgv2:latest
+    user: root
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
@@ -49,7 +45,8 @@ services:
       - SYS_ADMIN
     security_opt:
       - seccomp:unconfined
-    cgroupns: host
+    privileged: true
+    pids_limit: -1
     <<: *default-logging
     restart: always
 

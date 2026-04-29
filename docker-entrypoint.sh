@@ -6,9 +6,21 @@
 CGROUP_PATH="/sys/fs/cgroup"
 if [ -f "$CGROUP_PATH/cgroup.controllers" ]; then
     echo "[judge0-bootstrap] cgroup v2 detected — enabling controllers"
-    echo "+cpu +memory +pids" > "$CGROUP_PATH/cgroup.subtree_control" 2>/dev/null || true
+    echo "+cpuset +cpu +memory +pids" > "$CGROUP_PATH/cgroup.subtree_control" 2>/dev/null || true
+    if [ -f "$CGROUP_PATH/cpuset.cpus.effective" ]; then
+        cat "$CGROUP_PATH/cpuset.cpus.effective" > "$CGROUP_PATH/cpuset.cpus" 2>/dev/null || true
+    fi
+    if [ -f "$CGROUP_PATH/cpuset.mems.effective" ]; then
+        cat "$CGROUP_PATH/cpuset.mems.effective" > "$CGROUP_PATH/cpuset.mems" 2>/dev/null || true
+    fi
     mkdir -p "$CGROUP_PATH/isolate"
-    echo "+cpu +memory +pids" > "$CGROUP_PATH/isolate/cgroup.subtree_control" 2>/dev/null || true
+    echo "+cpuset +cpu +memory +pids" > "$CGROUP_PATH/isolate/cgroup.subtree_control" 2>/dev/null || true
+    if [ -f "$CGROUP_PATH/cpuset.cpus.effective" ]; then
+        cat "$CGROUP_PATH/cpuset.cpus.effective" > "$CGROUP_PATH/isolate/cpuset.cpus" 2>/dev/null || true
+    fi
+    if [ -f "$CGROUP_PATH/cpuset.mems.effective" ]; then
+        cat "$CGROUP_PATH/cpuset.mems.effective" > "$CGROUP_PATH/isolate/cpuset.mems" 2>/dev/null || true
+    fi
     echo "[judge0-bootstrap] Controllers active: $(cat $CGROUP_PATH/cgroup.controllers)"
 else
     echo "[judge0-bootstrap] cgroup v1 detected — skipping v2 bootstrap"

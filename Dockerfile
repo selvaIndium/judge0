@@ -1,5 +1,11 @@
 FROM judge0/compilers:1.4.0 AS production
 
+# Fix Debian Buster (EOL) repositories
+RUN sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list && \
+    sed -i '/buster-updates/d' /etc/apt/sources.list && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid
+
 ENV JUDGE0_HOMEPAGE "https://judge0.com"
 LABEL homepage=$JUDGE0_HOMEPAGE
 
@@ -36,6 +42,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     git clone --depth 1 --branch v2.4 https://github.com/ioi/isolate.git /tmp/isolate && \
     cd /tmp/isolate && \
+    # Patch for older kernels (Debian Buster)
+    sed -i 's/SYS_quotactl_fd/SYS_quotactl/g' rules.c && \
     make -j$(nproc) isolate isolate-check-environment && \
     install -m 4755 isolate /usr/local/bin/isolate && \
     install isolate-check-environment /usr/local/bin/isolate-check-environment && \
